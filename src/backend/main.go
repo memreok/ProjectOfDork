@@ -1,11 +1,14 @@
 package main
 
 import (
+	"dork-project/database"
 	"dork-project/handlers"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -19,9 +22,7 @@ const (
 func loggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
 		next.ServeHTTP(w, r)
-
 		duration := time.Since(start)
 
 		domain := r.FormValue("domain")
@@ -45,18 +46,21 @@ func loggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
+	godotenv.Load()
+
+	database.InitDB()
 
 	http.HandleFunc("/", loggerMiddleware(handlers.FormHandler))
 	http.HandleFunc("/api/dorks", loggerMiddleware(handlers.ApiHandler))
 
 	port := ":9867"
 	fmt.Println("=====================================================")
-	fmt.Printf(" %s[BAŞLADI]%s Dork Atölyesi v1.3\n", ColorGreen, ColorReset)
+	fmt.Printf(" %s[BAŞLADI]%s Dork Atölyesi v1.5 (PostgreSQL Aktif)\n", ColorGreen, ColorReset)
 	fmt.Printf(" [WEB] Arayüz: http://localhost%s\n", port)
 	fmt.Printf(" [API] Endpoint: http://localhost%s/api/dorks?domain=ornek.com\n", port)
 	fmt.Println("=====================================================")
 
 	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatal("Sunucu hatası:", err)
+		log.Fatal(err)
 	}
 }

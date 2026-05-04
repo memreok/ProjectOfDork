@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type DorkItem struct {
 	Title       string
 	Description string
@@ -12,11 +14,20 @@ type GeneratedDork struct {
 	URL   string
 }
 
+type HistoryItem struct {
+	ID              uint   `gorm:"primaryKey"`
+	Domain          string `gorm:"index"`
+	IsTargetAlive   bool
+	TargetStatusMsg string
+	Timestamp       time.Time `gorm:"autoCreateTime"`
+}
+
 type PageData struct {
 	Domain          string
 	SelectedDork    string
 	Results         []GeneratedDork
 	Dorks           []DorkItem
+	History         []HistoryItem
 	ErrorMessage    string
 	IsTargetAlive   bool
 	TargetStatusMsg string
