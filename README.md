@@ -14,15 +14,44 @@ Dork Atölyesi, siber güvenlik uzmanları, CTF oyuncuları ve Bug Bounty avcıl
 
 - **Logger Middleware:** Yapılan tüm sorguları ve işlem sürelerini renkli olarak terminale loglar.
 
+- **Kalıcı Geçmiş Sorgular:** Tüm tarama sonuçları *PostgreSQL (veya Neon.tech)* üzerinde saklanır. Tekrar tarama yapmadan sonuçlar anında yüklenebilir.
+
 ## Kurulum ve Çalıştırma
 
-Proje hiçbir harici kütüphane veya framework gerektirmez. Sadece Go'nun standart kütüphaneleriyle ve arayüz için TailwindCSS (CDN) ile geliştirilmiştir.
+### Hazırlık
+
+Go (1.20+) ve bir PostgreSQL veritabanına (örn: Neon.tech) sahip olduğunuzdan emin olun.
+Arayüz için TailwindCSS (CDN) ile geliştirilmiştir.
 
 Repoyu klonlayın ve backend dizinine gidin:
 
 ```
+git clone https://github.com/memreok/ProjectOfDork.git
+```
+
+```
+cd ProjectOfDork
 cd src/backend
 ```
+
+Bağımlılıkların Yüklenmesi
+```
+
+go get gorm.io/gorm
+go get gorm.io/driver/postgres
+go get github.com/joho/godotenv
+
+```
+
+Ortam Değişkenlerini Ayarlama
+
+src/backend dizininde .env adında bir dosya oluşturun ve veritabanı linkinizi tırnak kullanmadan ekleyin:
+
+```
+DATABASE_URL=postgresql://kullanici:sifre@sunucu-adresi/veritabani?sslmode=require
+```
+
+
 
 Projeyi çalıştırın:
 ```
@@ -62,17 +91,27 @@ curl "http://localhost:9867/api/dorks?domain=ornek.com"
 
 ## Proje Yapısı
 ```
-src/
-├── backend/
-│   ├── handlers/      # API ve Form rotalarının işlendiği kontrolcüler
-│   │   ├── api.go
-│   │   └── dork.go
-│   ├── models/        # Veri yapıları ve Dork veritabanı
-│   │   └── dork_data.go
-│   └── main.go        # Uygulama başlangıç noktası ve Middleware
-└── frontend/
-    └── index.html     # TailwindCSS ile tasarlanmış kullanıcı arayüzü
+.
+├── README.md
+└── src
+    ├── backend
+    │   ├── database
+    │   │   └── db.go
+    │   ├── go.mod
+    │   ├── go.sum
+    │   ├── handlers
+    │   │   ├── api.go
+    │   │   └── dork.go
+    │   ├── main.go
+    │   ├── models
+    │   │   └── dork_data.go
+    └── frontend
+        └── index.html
 ```
 ****
-! Öğrenme ve öğretme amacıyla yapılmıştır. Yapılan sorgulardan kullanıcılar sorumludur. Geliştirici sorumlu tutulamaz. !
+## Yasal Uyarı
+
+Bu araç tamamen eğitim ve güvenlik testi (OSINT) amaçlı üretilmiştir. Sorgu sonuçlarından ve kullanım şeklinden tamamen son kullanıcı sorumludur. Geliştirici, aracın kötüye kullanımından doğacak hiçbir zarardan sorumlu tutulamaz.
+
+Geliştirici: Mehmet Emre Ök
 ****

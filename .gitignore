@@ -1,0 +1,6 @@
+.env
+*.db
+dork-server
+dork-server.exe
+*.agents/
+*.json
