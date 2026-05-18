@@ -111,7 +111,7 @@ CI/CD icin Jenkins kullanilir. `Jenkinsfile` su asamalari calistirir:
 2. Commit SHA ve Jenkins build numarasindan imaj tag'i uretilir.
 3. `go test ./...` calistirilir.
 4. Docker imaji build edilir.
-5. Google Cloud servis hesabi ile auth olunur.
+5. Jenkins makinesindeki aktif `gcloud` oturumu ile Google Cloud projesi secilir ve Docker auth yapilir.
 6. Imaj Google Artifact Registry'ye push edilir.
 7. GKE cluster credentials alinir.
 8. Secret, PVC, Deployment, Service, HPA ve NetworkPolicy manifestleri uygulanir.
@@ -125,6 +125,7 @@ Jenkinsfile'in repoda bulunmasi tek basina otomasyonun aktif oldugu anlamina gel
 - Repository URL bu GitHub reposunu gostermeli.
 - Script Path `Jenkinsfile` olmali.
 - Jenkins credential kayitlari olusturulmali.
+- Jenkins'i calistiran kullanici daha once `gcloud auth login` ile Google Cloud'a giris yapmis olmali.
 - Build tetikleyici olarak GitHub webhook veya belirli araliklarla SCM polling acilmali.
 
 Webhook/polling yoksa Jenkinsfile dogrudur ama build elle baslatilir; tam otomatik sayilmaz.
@@ -134,13 +135,14 @@ Webhook/polling yoksa Jenkinsfile dogrudur ama build elle baslatilir; tam otomat
 Jenkins > Manage Credentials altinda su credential ID'leri beklenir:
 
 ```text
-gcp-service-account-json  Secret file
 postgres-user             Secret text
 postgres-password         Secret text
 postgres-db               Secret text
 ```
 
-Google Cloud servis hesabinda en az su roller bulunmalidir:
+Bu projede servis hesabi JSON key kullanilmamaktadir. Google Cloud organizasyon politikasinda `iam.disableServiceAccountKeyCreation` aktif oldugu icin Jenkins, makinedeki aktif `gcloud` kullanici oturumuyla calisir.
+
+Jenkins'i calistiran Google kullanicisinda en az su yetkiler bulunmalidir:
 
 - Artifact Registry Writer
 - Kubernetes Engine Developer

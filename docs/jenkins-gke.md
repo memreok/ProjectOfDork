@@ -22,6 +22,14 @@ Jenkins agent üzerinde şu araçlar kurulu olmalı:
 
 Jenkins kullanıcısının Docker daemon'a erişimi olmalı.
 
+Jenkins'i çalıştıran Linux kullanıcısı Google Cloud'a giriş yapmış olmalı:
+
+```bash
+gcloud auth login
+gcloud config set project project-444d504d-38fb-4e0d-83e
+gcloud auth configure-docker europe-west1-docker.pkg.dev
+```
+
 Not: Repoda `Jenkinsfile` bulunması tek başına otomasyonun aktif olduğu anlamına gelmez. Jenkins üzerinde `Pipeline from SCM` job kurulmalı ve otomatik tetikleme için GitHub webhook veya SCM polling açılmalıdır.
 
 ## Google Cloud Hazırlığı
@@ -41,24 +49,19 @@ gcloud container clusters create-auto dork-cluster \
   --zone=europe-west1-b
 ```
 
-Servis hesabı için gerekli roller:
+Bu projede servis hesabı JSON key dosyası kullanılmaz. Google Cloud organizasyon politikasında `iam.disableServiceAccountKeyCreation` aktifse JSON key üretilemez. Bunun yerine Jenkins, makinedeki aktif `gcloud` kullanıcı oturumu ile deploy eder.
+
+Jenkins'i çalıştıran Google kullanıcısı için gerekli roller:
 
 - Artifact Registry Writer
 - Kubernetes Engine Developer
 - Service Account User
-
-Servis hesabı JSON key dosyasını Jenkins Credentials içine şu ID ile ekle:
-
-```text
-gcp-service-account-json
-```
 
 ## Jenkins Credentials
 
 Jenkins > Manage Credentials altında şu credential'ları oluştur:
 
 ```text
-gcp-service-account-json  Secret file
 postgres-user             Secret text
 postgres-password         Secret text
 postgres-db               Secret text

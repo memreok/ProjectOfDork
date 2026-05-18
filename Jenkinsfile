@@ -58,13 +58,11 @@ pipeline {
 
         stage('Google Cloud Auth') {
             steps {
-                withCredentials([file(credentialsId: 'gcp-service-account-json', variable: 'GCP_KEY_FILE')]) {
-                    sh '''
-                        gcloud auth activate-service-account --key-file="${GCP_KEY_FILE}"
-                        gcloud config set project "${GCP_PROJECT_ID}"
-                        gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
-                    '''
-                }
+                sh '''
+                    gcloud config set project "${GCP_PROJECT_ID}"
+                    gcloud auth list
+                    gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+                '''
             }
         }
 
