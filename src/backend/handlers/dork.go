@@ -14,7 +14,10 @@ import (
 	"gorm.io/gorm"
 )
 
-var domainRegex = regexp.MustCompile(`^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
+var (
+	domainRegex         = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$`)
+	wildcardDomainRegex = regexp.MustCompile(`^\*\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z]{2,}$`)
+)
 
 func FormHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.ParseFiles("../frontend/index.html"))
@@ -49,7 +52,7 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		hedefDomain := strings.TrimSpace(r.FormValue("domain"))
+		hedefDomain := normalizeTarget(r.FormValue("domain"))
 		historyID := r.FormValue("history_id")
 
 		var historyRecord models.HistoryItem
@@ -58,7 +61,7 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		if actionType == "load_history" && historyID != "" && database.IsReady() {
 			database.DB.First(&historyRecord, historyID)
 			if historyRecord.ID != 0 {
-				hedefDomain = historyRecord.Domain
+				hedefDomain = normalizeTarget(historyRecord.Domain)
 				data.IsTargetAlive = historyRecord.IsTargetAlive
 				data.TargetStatusMsg = historyRecord.TargetStatusMsg
 				useStoredData = true
@@ -68,13 +71,16 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		data.Domain = hedefDomain
 		data.SelectedDork = r.FormValue("custom_dork")
 
-		if !domainRegex.MatchString(hedefDomain) {
-			data.ErrorMessage = "Geçersiz format! Lütfen ornek.com gibi geçerli bir domain girin."
+		if !isValidTarget(hedefDomain) {
+			data.ErrorMessage = "Geçersiz format! Lütfen ornek.com veya *.hk gibi geçerli bir hedef girin."
 			tmpl.Execute(w, data)
 			return
 		}
 
-		if !useStoredData {
+		if isWildcardTarget(hedefDomain) {
+			data.IsTargetAlive = false
+			data.TargetStatusMsg = "Wildcard hedef (canlılık kontrolü atlandı)"
+		} else if !useStoredData {
 			client := &http.Client{Timeout: 5 * time.Second}
 			makeReq := func(targetURL string) (*http.Response, error) {
 				req, _ := http.NewRequest("GET", targetURL, nil)
@@ -105,23 +111,25 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 				data.TargetStatusMsg = fmt.Sprintf("Aktif (%s %d)", protokol, resp.StatusCode)
 			}
 
-			if database.IsReady() {
-				var existing models.HistoryItem
-				result := database.DB.Where("domain = ?", hedefDomain).First(&existing)
-				if result.Error != nil {
-					database.DB.Create(&models.HistoryItem{
-						Domain:          hedefDomain,
-						IsTargetAlive:   data.IsTargetAlive,
-						TargetStatusMsg: data.TargetStatusMsg,
-					})
-				} else {
-					existing.IsTargetAlive = data.IsTargetAlive
-					existing.TargetStatusMsg = data.TargetStatusMsg
-					existing.Timestamp = time.Now()
-					database.DB.Save(&existing)
-				}
-				database.DB.Order("timestamp desc").Find(&data.History)
+		}
+
+		if !useStoredData && database.IsReady() {
+			var existing models.HistoryItem
+			result := database.DB.Where("LOWER(domain) = ?", hedefDomain).First(&existing)
+			if result.Error != nil {
+				database.DB.Create(&models.HistoryItem{
+					Domain:          hedefDomain,
+					IsTargetAlive:   data.IsTargetAlive,
+					TargetStatusMsg: data.TargetStatusMsg,
+				})
+			} else {
+				existing.Domain = hedefDomain
+				existing.IsTargetAlive = data.IsTargetAlive
+				existing.TargetStatusMsg = data.TargetStatusMsg
+				existing.Timestamp = time.Now()
+				database.DB.Save(&existing)
 			}
+			database.DB.Order("timestamp desc").Find(&data.History)
 		}
 
 		secilenDork := data.SelectedDork
@@ -150,6 +158,27 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.Execute(w, data)
+}
+
+func normalizeTarget(raw string) string {
+	target := strings.ToLower(strings.TrimSpace(raw))
+	target = strings.TrimPrefix(target, "https://")
+	target = strings.TrimPrefix(target, "http://")
+	target = strings.TrimPrefix(target, "//")
+
+	if cut := strings.IndexAny(target, "/?#"); cut >= 0 {
+		target = target[:cut]
+	}
+
+	return strings.Trim(target, ".")
+}
+
+func isValidTarget(target string) bool {
+	return domainRegex.MatchString(target) || wildcardDomainRegex.MatchString(target)
+}
+
+func isWildcardTarget(target string) bool {
+	return wildcardDomainRegex.MatchString(target)
 }
 
 func HistoryHandler(w http.ResponseWriter, r *http.Request) {

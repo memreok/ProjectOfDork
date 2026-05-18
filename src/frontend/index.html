@@ -12,191 +12,231 @@
         }
         .animate-fade-in { animation: fadeIn 0.25s ease-out forwards; }
         .thin-scrollbar::-webkit-scrollbar { width: 8px; }
-        .thin-scrollbar::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 999px; }
+        .thin-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 999px; }
         .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
-    <header class="bg-indigo-700 text-white shadow-md shrink-0">
-        <div class="max-w-[1480px] mx-auto px-6 py-6 flex items-center justify-between gap-4">
-            <a href="/" class="text-3xl font-black tracking-[0.14em]">DORK ATÖLYESİ</a>
-            <nav class="flex items-center gap-5 text-indigo-100">
-                <a href="/history" class="text-sm font-bold hover:text-white transition-colors">Geçmiş</a>
-                <span class="hidden sm:inline text-lg">Gelişmiş OSINT Araçları</span>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+    <header class="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-30">
+        <div class="max-w-[1540px] mx-auto px-5 py-4 flex items-center justify-between gap-4">
+            <a href="/" class="flex items-center gap-3 min-w-0">
+                <span class="h-10 w-10 rounded-lg bg-slate-950 text-emerald-300 grid place-items-center font-black">D</span>
+                <span class="text-2xl font-black tracking-[0.08em] text-slate-950 truncate">DORK ATÖLYESİ</span>
+            </a>
+            <nav class="flex items-center gap-3 text-sm font-bold">
+                <a href="/history" class="px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-950">Geçmiş</a>
+                <span class="hidden md:inline-flex px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">OSINT Toolkit</span>
             </nav>
         </div>
     </header>
 
-    <main class="max-w-[1480px] mx-auto w-full px-6 py-10 grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)_340px] gap-8 items-start grow">
-        <aside class="space-y-6 xl:sticky xl:top-8">
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 mb-5">
-                    <h2 class="text-xl font-black text-slate-700 flex items-center gap-3">
-                        <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Son Atılan Dorklar
-                    </h2>
-                    {{if .History}}
-                    <form action="/" method="POST" onsubmit="return confirm('Tüm geçmişi silmek istediğine emin misin?')">
-                        <button type="submit" name="action" value="clear_history" class="text-xs font-bold text-red-500 hover:text-red-700">Temizle</button>
-                    </form>
-                    {{end}}
-                </div>
-
-                <div class="space-y-3">
-                    {{if .History}}
-                        {{range .History}}
-                        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4 hover:border-indigo-300 transition-colors">
-                            <div class="flex items-start justify-between gap-3">
-                                <form action="/" method="POST" class="min-w-0 flex-1">
-                                    <input type="hidden" name="history_id" value="{{.ID}}">
-                                    <button type="submit" name="action" value="load_history" class="w-full text-left">
-                                        <span class="block text-base font-black text-slate-700 truncate">{{.Domain}}</span>
-                                        <span class="block text-[11px] text-slate-500 italic mt-3">{{.TargetStatusMsg}}</span>
-                                    </button>
-                                </form>
-                                <form action="/" method="POST" onsubmit="return confirm('Bu kaydı silmek istediğine emin misin?')" class="shrink-0">
-                                    <input type="hidden" name="history_id" value="{{.ID}}">
-                                    <button type="submit" name="action" value="delete_history" class="text-slate-300 hover:text-red-500 p-1 rounded" title="Kaydı sil">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path>
-                                        </svg>
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                        {{end}}
-                        <a href="/history" class="block w-full text-center text-base font-black bg-indigo-50 text-indigo-700 py-4 rounded-lg hover:bg-indigo-100 transition-colors">Tümünü İncele -></a>
-                    {{else}}
-                        <p class="text-sm text-slate-400 italic text-center py-8">Henüz arama yapılmadı.</p>
-                    {{end}}
-                </div>
-            </section>
-        </aside>
-
-        <section class="space-y-8 min-w-0">
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-                <div class="mb-6">
-                    <p class="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">Hedef Analizi</p>
-                    <h1 class="text-3xl font-black text-slate-800 mt-2">Dork üret ve hedef durumunu kontrol et</h1>
-                    <p class="text-sm text-slate-500 mt-2">Domain gir, tekli sorgu ya da tüm kütüphane üzerinden Google Dork çıktısı üret.</p>
-                </div>
-
-                {{if .ErrorMessage}}
-                <div class="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm font-bold animate-fade-in">
-                    {{.ErrorMessage}}
-                </div>
-                {{end}}
-
-                <form action="/" method="POST" class="space-y-5">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <label for="domain" class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Hedef Domain</label>
-                            <input id="domain" type="text" name="domain" value="{{.Domain}}" required placeholder="ornek.com"
-                                class="w-full px-4 py-4 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-base font-bold">
-                        </div>
-                        <div>
-                            <label for="custom_dork" class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Özel Dork</label>
-                            <input id="custom_dork" type="text" name="custom_dork" value="{{.SelectedDork}}" placeholder="ext:sql | ext:env"
-                                class="w-full px-4 py-4 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono text-sm">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <button type="submit" name="action" value="single" class="px-6 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-lg shadow-sm transition-all active:scale-[0.99]">
-                            Tekli Sorgu Üret
-                        </button>
-                        <button type="submit" name="action" value="all" class="px-6 py-4 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-lg shadow-sm transition-all active:scale-[0.99]">
-                            Tüm Kütüphaneyi Tarat
-                        </button>
-                    </div>
-                </form>
-            </section>
-
-            {{if .Results}}
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in">
-                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-5">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-3">
-                            <span class="w-3 h-3 rounded-full {{if .IsTargetAlive}}bg-emerald-500{{else}}bg-red-500{{end}} shadow-sm"></span>
-                            <h2 class="text-2xl font-black text-slate-800 truncate">Hedef: {{.Domain}}</h2>
-                        </div>
-                        <p class="text-sm font-semibold text-slate-500 mt-2">{{len .Results}} sorgu üretildi · {{.TargetStatusMsg}}</p>
-                    </div>
-
-                    {{if gt (len .Results) 1}}
-                    <form action="/" method="POST" class="flex gap-2 shrink-0">
-                        <input type="hidden" name="domain" value="{{.Domain}}">
-                        <button type="submit" name="action" value="export_txt" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-black">TXT</button>
-                        <button type="submit" name="action" value="export_json" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-black">JSON</button>
-                    </form>
-                    {{end}}
-                </div>
-
-                <div class="space-y-4">
-                    {{range .Results}}
-                    <article class="border border-slate-200 bg-slate-50 rounded-lg p-5 hover:border-indigo-300 transition-colors">
-                        <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                            <div class="min-w-0">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="text-[10px] font-black uppercase tracking-wide text-indigo-700 bg-indigo-50 px-2 py-1 rounded">{{.Category}}</span>
-                                    <h3 class="text-base font-black text-slate-800">{{.Title}}</h3>
-                                </div>
-                                <p class="text-sm text-slate-600 mt-2 leading-relaxed">{{.Description}}</p>
-                                <code class="mt-3 block text-xs md:text-sm font-mono text-emerald-700 bg-white border border-slate-200 rounded-lg p-3 break-all select-all">{{.Query}}</code>
-                            </div>
-                            <div class="flex lg:flex-col gap-2 shrink-0">
-                                <button type="button" onclick="copyQuery('{{js .Query}}', this)" class="px-4 py-3 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-xs font-black text-slate-700">Kopyala</button>
-                                <a href="{{.URL}}" target="_blank" rel="noopener noreferrer" class="px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black text-center">Google</a>
-                            </div>
-                        </div>
-                    </article>
-                    {{end}}
-                </div>
-            </section>
-            {{end}}
+    <main class="max-w-[1540px] mx-auto w-full px-5 py-6 space-y-6">
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-500">Dork Kütüphanesi</p>
+                <p class="mt-2 text-3xl font-black text-slate-950">{{len .Dorks}}</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-500">Son Hedef</p>
+                <p class="mt-2 text-2xl font-black text-slate-950 truncate">{{if .Domain}}{{.Domain}}{{else}}Henüz yok{{end}}</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-500">Durum</p>
+                <p class="mt-2 text-lg font-black {{if .IsTargetAlive}}text-emerald-700{{else}}text-slate-700{{end}} truncate">{{if .TargetStatusMsg}}{{.TargetStatusMsg}}{{else}}Hazır{{end}}</p>
+            </div>
         </section>
 
-        <aside class="space-y-6 xl:sticky xl:top-8">
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 mb-5">
-                    <h2 class="text-2xl font-black text-slate-700 flex items-center gap-3">
-                        <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                        </svg>
-                        Referanslar
-                    </h2>
-                    <span class="text-xs font-black bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">{{len .Dorks}}</span>
-                </div>
+        <section class="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_420px] gap-6 items-start">
+            <aside class="space-y-4 xl:sticky xl:top-24">
+                <section class="bg-white rounded-lg border border-slate-200 p-5">
+                    <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 mb-4">
+                        <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Son Sorgular
+                        </h2>
+                        {{if .History}}
+                        <form action="/" method="POST" onsubmit="return confirm('Tüm geçmişi silmek istediğine emin misin?')">
+                            <button type="submit" name="action" value="clear_history" class="text-xs font-black text-red-500 hover:text-red-700">Temizle</button>
+                        </form>
+                        {{end}}
+                    </div>
 
-                <div class="space-y-4 max-h-[calc(100vh-13rem)] overflow-y-auto pr-2 thin-scrollbar">
-                    {{range .Dorks}}
-                    <article class="border-l-4 border-indigo-500 bg-slate-50 rounded-r-lg p-4 hover:bg-white hover:shadow-sm transition-all">
-                        <div class="flex items-start justify-between gap-2">
-                            <h3 class="text-sm font-black text-slate-800 leading-snug">{{.Title}}</h3>
-                            <span class="text-[10px] font-black text-slate-500 bg-white border border-slate-200 rounded px-2 py-1 shrink-0">{{.Category}}</span>
-                        </div>
-                        <p class="text-xs text-slate-600 mt-2 leading-relaxed">{{.Description}}</p>
-                        <code class="block mt-3 text-[11px] font-mono bg-slate-900 text-emerald-300 rounded-lg p-3 break-all">{{.Example}}</code>
-                        <button type="button" onclick="useDork('{{js .Example}}')" class="mt-3 w-full text-xs font-black bg-indigo-50 text-indigo-700 py-2.5 rounded-lg hover:bg-indigo-100 transition-colors">
-                            Sorguya Al
-                        </button>
-                    </article>
+                    <div class="space-y-3">
+                        {{if .History}}
+                            {{range .History}}
+                            <article class="group bg-slate-50 rounded-lg border border-slate-200 p-4 hover:border-cyan-300 transition-colors">
+                                <div class="flex items-start justify-between gap-3">
+                                    <form action="/" method="POST" class="min-w-0 flex-1">
+                                        <input type="hidden" name="history_id" value="{{.ID}}">
+                                        <button type="submit" name="action" value="load_history" class="w-full text-left">
+                                            <span class="block text-base font-black text-slate-800 group-hover:text-cyan-700 truncate">{{.Domain}}</span>
+                                            <span class="block text-[11px] text-slate-500 italic mt-2">{{.TargetStatusMsg}}</span>
+                                        </button>
+                                    </form>
+                                    <form action="/" method="POST" onsubmit="return confirm('Bu kaydı silmek istediğine emin misin?')" class="shrink-0">
+                                        <input type="hidden" name="history_id" value="{{.ID}}">
+                                        <button type="submit" name="action" value="delete_history" class="text-slate-300 hover:text-red-500 p-1 rounded" title="Kaydı sil">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            </article>
+                            {{end}}
+                            <a href="/history" class="block w-full text-center text-sm font-black bg-slate-950 text-white py-3 rounded-lg hover:bg-slate-800 transition-colors">Tümünü İncele</a>
+                        {{else}}
+                            <p class="text-sm text-slate-400 italic text-center py-8">Henüz arama yapılmadı.</p>
+                        {{end}}
+                    </div>
+                </section>
+            </aside>
+
+            <section class="space-y-6 min-w-0">
+                <section class="bg-white rounded-lg border border-slate-200 p-6 lg:p-8">
+                    <div class="max-w-3xl">
+                        <p class="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">Hedef Analizi</p>
+                        <h1 class="text-3xl lg:text-5xl font-black text-slate-950 mt-3 leading-tight">Dork üret, hedef durumunu takip et.</h1>
+                        <p class="text-base text-slate-600 mt-4 leading-relaxed">Domainler otomatik küçük harfe çevrilir. Wildcard hedefler için `*.hk` gibi girişler desteklenir ve canlılık kontrolü atlanır.</p>
+                    </div>
+
+                    {{if .ErrorMessage}}
+                    <div class="mt-6 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm font-bold animate-fade-in">
+                        {{.ErrorMessage}}
+                    </div>
                     {{end}}
-                </div>
+
+                    <form action="/" method="POST" class="mt-7 space-y-5">
+                        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4">
+                            <div>
+                                <label for="domain" class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Hedef</label>
+                                <input id="domain" type="text" name="domain" value="{{.Domain}}" required placeholder="tesla.com veya *.hk"
+                                    class="w-full px-4 py-4 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-lg font-black">
+                            </div>
+                            <div>
+                                <label for="custom_dork" class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Özel Dork</label>
+                                <input id="custom_dork" type="text" name="custom_dork" value="{{.SelectedDork}}" placeholder="ext:sql | ext:env"
+                                    class="w-full px-4 py-4 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all font-mono text-sm">
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="setTarget('tesla.com')" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-black text-slate-700">tesla.com</button>
+                            <button type="button" onclick="setTarget('*.hk')" class="px-3 py-2 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-xs font-black text-cyan-700">*.hk</button>
+                            <button type="button" onclick="setTarget('*.gov.tr')" class="px-3 py-2 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-xs font-black text-cyan-700">*.gov.tr</button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button type="submit" name="action" value="single" class="px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white font-black rounded-lg shadow-sm transition-all active:scale-[0.99]">
+                                Tekli Sorgu Üret
+                            </button>
+                            <button type="submit" name="action" value="all" class="px-6 py-4 bg-slate-950 hover:bg-slate-800 text-white font-black rounded-lg shadow-sm transition-all active:scale-[0.99]">
+                                Tüm Kütüphaneyi Tarat
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                {{if .Results}}
+                <section class="bg-white rounded-lg border border-slate-200 p-5 animate-fade-in">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-5">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full {{if .IsTargetAlive}}bg-emerald-500{{else}}bg-amber-500{{end}} shadow-sm"></span>
+                                <h2 class="text-2xl font-black text-slate-950 truncate">Hedef: {{.Domain}}</h2>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-500 mt-2">{{len .Results}} sorgu üretildi · {{.TargetStatusMsg}}</p>
+                        </div>
+
+                        {{if gt (len .Results) 1}}
+                        <form action="/" method="POST" class="flex gap-2 shrink-0">
+                            <input type="hidden" name="domain" value="{{.Domain}}">
+                            <button type="submit" name="action" value="export_txt" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-black">TXT</button>
+                            <button type="submit" name="action" value="export_json" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-black">JSON</button>
+                        </form>
+                        {{end}}
+                    </div>
+
+                    <div class="space-y-3">
+                        {{range .Results}}
+                        <article class="border border-slate-200 bg-slate-50 rounded-lg p-4 hover:border-cyan-300 transition-colors">
+                            <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-[10px] font-black uppercase tracking-wide text-cyan-700 bg-cyan-50 px-2 py-1 rounded">{{.Category}}</span>
+                                        <h3 class="text-base font-black text-slate-900">{{.Title}}</h3>
+                                    </div>
+                                    <p class="text-sm text-slate-600 mt-2 leading-relaxed">{{.Description}}</p>
+                                    <code class="mt-3 block text-xs md:text-sm font-mono text-emerald-700 bg-white border border-slate-200 rounded-lg p-3 break-all select-all">{{.Query}}</code>
+                                </div>
+                                <div class="flex lg:flex-col gap-2 shrink-0">
+                                    <button type="button" onclick="copyQuery('{{js .Query}}', this)" class="px-4 py-3 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-xs font-black text-slate-700">Kopyala</button>
+                                    <a href="{{.URL}}" target="_blank" rel="noopener noreferrer" class="px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black text-center">Google</a>
+                                </div>
+                            </div>
+                        </article>
+                        {{end}}
+                    </div>
+                </section>
+                {{end}}
             </section>
-        </aside>
+
+            <aside class="space-y-4 xl:sticky xl:top-24">
+                <section class="bg-white rounded-lg border border-slate-200 p-5">
+                    <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4 mb-4">
+                        <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                            </svg>
+                            Referanslar
+                        </h2>
+                        <span class="text-xs font-black bg-slate-100 text-slate-700 px-3 py-1 rounded-full">{{len .Dorks}}</span>
+                    </div>
+
+                    <input id="librarySearch" type="search" placeholder="Kategori, başlık veya sorgu ara"
+                        class="w-full px-4 py-3 rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none text-sm font-semibold">
+
+                    <div id="libraryList" class="mt-4 space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto pr-2 thin-scrollbar">
+                        {{range .Dorks}}
+                        <article class="dork-card border border-slate-200 bg-slate-50 rounded-lg p-4 hover:bg-white hover:border-cyan-300 transition-all"
+                            data-search="{{.Title}} {{.Category}} {{.Description}} {{.Example}}">
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="text-sm font-black text-slate-900 leading-snug">{{.Title}}</h3>
+                                <span class="text-[10px] font-black text-slate-500 bg-white border border-slate-200 rounded px-2 py-1 shrink-0">{{.Category}}</span>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-2 leading-relaxed">{{.Description}}</p>
+                            <code class="block mt-3 text-[11px] font-mono bg-slate-950 text-emerald-300 rounded-lg p-3 break-all">{{.Example}}</code>
+                            <button type="button" onclick="useDork('{{js .Example}}')" class="mt-3 w-full text-xs font-black bg-cyan-50 text-cyan-700 py-2.5 rounded-lg hover:bg-cyan-100 transition-colors">
+                                Sorguya Al
+                            </button>
+                        </article>
+                        {{end}}
+                    </div>
+                </section>
+            </aside>
+        </section>
     </main>
 
     <script>
+        function normalizeInputValue(value) {
+            return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^\/\//, '').split(/[/?#]/)[0].replace(/\.+$/, '');
+        }
+
+        function setTarget(target) {
+            const input = document.getElementById('domain');
+            input.value = target;
+            input.focus();
+        }
+
         function useDork(query) {
             const input = document.getElementById('custom_dork');
             input.value = query;
             input.focus();
-            input.classList.add('ring-4', 'ring-indigo-200');
+            input.classList.add('ring-4', 'ring-cyan-200');
             input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => input.classList.remove('ring-4', 'ring-indigo-200'), 700);
+            setTimeout(() => input.classList.remove('ring-4', 'ring-cyan-200'), 700);
         }
 
         function copyQuery(query, button) {
@@ -221,6 +261,18 @@
             document.body.removeChild(textArea);
             done();
         }
+
+        const domainInput = document.getElementById('domain');
+        domainInput.addEventListener('blur', () => {
+            domainInput.value = normalizeInputValue(domainInput.value);
+        });
+
+        document.getElementById('librarySearch').addEventListener('input', (event) => {
+            const query = event.target.value.trim().toLowerCase();
+            document.querySelectorAll('.dork-card').forEach((card) => {
+                card.classList.toggle('hidden', query !== '' && !card.dataset.search.toLowerCase().includes(query));
+            });
+        });
     </script>
 </body>
 </html>

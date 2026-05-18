@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -19,7 +18,7 @@ func ApiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hedefDomain := strings.TrimSpace(r.URL.Query().Get("domain"))
+	hedefDomain := normalizeTarget(r.URL.Query().Get("domain"))
 
 	if hedefDomain == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -27,35 +26,39 @@ func ApiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !domainRegex.MatchString(hedefDomain) {
+	if !isValidTarget(hedefDomain) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Geçersiz domain formatı."})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Geçersiz hedef formatı. ornek.com veya *.hk kullanabilirsiniz."})
 		return
 	}
 
 	isAlive := false
 	statusMsg := "Ulaşılamaz"
 
-	client := &http.Client{Timeout: 5 * time.Second}
-	makeReq := func(targetURL string) (*http.Response, error) {
-		req, _ := http.NewRequest("GET", targetURL, nil)
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-		return client.Do(req)
-	}
-
-	resp, err := makeReq("https://" + hedefDomain)
-	if err != nil {
-		resp, err = makeReq("http://" + hedefDomain)
-	}
-
-	if err == nil {
-		defer resp.Body.Close()
-		isAlive = true
-		protokol := "HTTP"
-		if resp.Request.URL.Scheme == "https" || resp.TLS != nil {
-			protokol = "HTTPS"
+	if isWildcardTarget(hedefDomain) {
+		statusMsg = "Wildcard hedef (canlılık kontrolü atlandı)"
+	} else {
+		client := &http.Client{Timeout: 5 * time.Second}
+		makeReq := func(targetURL string) (*http.Response, error) {
+			req, _ := http.NewRequest("GET", targetURL, nil)
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+			return client.Do(req)
 		}
-		statusMsg = fmt.Sprintf("Aktif (%s %d)", protokol, resp.StatusCode)
+
+		resp, err := makeReq("https://" + hedefDomain)
+		if err != nil {
+			resp, err = makeReq("http://" + hedefDomain)
+		}
+
+		if err == nil {
+			defer resp.Body.Close()
+			isAlive = true
+			protokol := "HTTP"
+			if resp.Request.URL.Scheme == "https" || resp.TLS != nil {
+				protokol = "HTTPS"
+			}
+			statusMsg = fmt.Sprintf("Aktif (%s %d)", protokol, resp.StatusCode)
+		}
 	}
 	results := models.BuildDorks(hedefDomain)
 
