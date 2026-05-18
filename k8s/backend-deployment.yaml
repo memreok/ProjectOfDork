@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dork-backend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: dork-backend
+  template:
+    metadata:
+      labels:
+        app: dork-backend
+    spec:
+      containers:
+      - name: dork-backend-container
+        image: europe-west1-docker.pkg.dev/project-444d504d-38fb-4e0d-83e/dork-repo/projectofdork-app:latest
+        ports:
+        - containerPort: 9867
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: DATABASE_URL
+        - name: DB_REQUIRED
+          value: "true"
+        
+        # [1] KAYNAK SINIRLARI (HPA İçin Zorunlu)
+        resources:
+          requests:
+            cpu: "100m" # Uygulama en az 0.1 CPU garanti ister
+            memory: "128Mi"
+          limits:
+            cpu: "250m" # Uygulama maksimum 0.25 CPU kullanabilir (Bunu geçerse HPA yeni kopya açar)
+            memory: "256Mi"
+        
+        # [2] LIVENESS PROBE (Self-Healing / Kendi Kendini Onarma)
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9867
+          initialDelaySeconds: 5 # Uygulama başladıktan 5 saniye sonra kontrole başla
+          periodSeconds: 10      # Her 10 saniyede bir kontrol et (Cevap alamazsa Pod'u öldürüp yenisini açar)
+        
+        # [3] READINESS PROBE (Sıfır Kesinti)
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 9867
+          initialDelaySeconds: 3
+          periodSeconds: 5       # Hazır olmadan önce LoadBalancer'dan bu Pod'a trafik gönderme

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tüm Dork Geçmişi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+            <h1 class="text-3xl font-black text-indigo-700">Tüm Arama Geçmişi</h1>
+            <a href="/" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50">&larr; Ana Sayfaya Dön</a>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {{if .History}}
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Hedef Domain</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Durum</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Tarih</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200">
+                    {{range .History}}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">{{.Domain}}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{.TargetStatusMsg}}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{{.Timestamp.Format "02 Jan 2006 15:04:05"}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <div class="p-10 text-center">
+                <h2 class="text-sm font-black text-slate-700">Henüz kayıt yok</h2>
+                <p class="text-xs text-slate-500 mt-2">Arama yaptığında hedef durumu ve zaman bilgisi burada listelenir.</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</body>
+</html>

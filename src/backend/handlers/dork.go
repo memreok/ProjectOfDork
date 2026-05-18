@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -24,13 +23,17 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		Dorks: models.DorkLibrary,
 	}
 
-	database.DB.Order("timestamp desc").Find(&data.History)
+	if database.IsReady() {
+		database.DB.Order("timestamp desc").Limit(5).Find(&data.History)
+	}
 
 	if r.Method == http.MethodPost {
 		actionType := r.FormValue("action")
 
 		if actionType == "clear_history" {
-			database.DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&models.HistoryItem{})
+			if database.IsReady() {
+				database.DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&models.HistoryItem{})
+			}
 			data.History = []models.HistoryItem{}
 			tmpl.Execute(w, data)
 			return
@@ -38,8 +41,10 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 
 		if actionType == "delete_history" {
 			historyID := r.FormValue("history_id")
-			database.DB.Delete(&models.HistoryItem{}, historyID)
-			database.DB.Order("timestamp desc").Find(&data.History)
+			if database.IsReady() {
+				database.DB.Delete(&models.HistoryItem{}, historyID)
+				database.DB.Order("timestamp desc").Find(&data.History)
+			}
 			tmpl.Execute(w, data)
 			return
 		}
@@ -50,7 +55,7 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		var historyRecord models.HistoryItem
 		useStoredData := false
 
-		if actionType == "load_history" && historyID != "" {
+		if actionType == "load_history" && historyID != "" && database.IsReady() {
 			database.DB.First(&historyRecord, historyID)
 			if historyRecord.ID != 0 {
 				hedefDomain = historyRecord.Domain
@@ -100,50 +105,38 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 				data.TargetStatusMsg = fmt.Sprintf("Aktif (%s %d)", protokol, resp.StatusCode)
 			}
 
-			var existing models.HistoryItem
-			result := database.DB.Where("domain = ?", hedefDomain).First(&existing)
-			if result.Error != nil {
-				database.DB.Create(&models.HistoryItem{
-					Domain:          hedefDomain,
-					IsTargetAlive:   data.IsTargetAlive,
-					TargetStatusMsg: data.TargetStatusMsg,
-				})
-			} else {
-				existing.IsTargetAlive = data.IsTargetAlive
-				existing.TargetStatusMsg = data.TargetStatusMsg
-				existing.Timestamp = time.Now()
-				database.DB.Save(&existing)
+			if database.IsReady() {
+				var existing models.HistoryItem
+				result := database.DB.Where("domain = ?", hedefDomain).First(&existing)
+				if result.Error != nil {
+					database.DB.Create(&models.HistoryItem{
+						Domain:          hedefDomain,
+						IsTargetAlive:   data.IsTargetAlive,
+						TargetStatusMsg: data.TargetStatusMsg,
+					})
+				} else {
+					existing.IsTargetAlive = data.IsTargetAlive
+					existing.TargetStatusMsg = data.TargetStatusMsg
+					existing.Timestamp = time.Now()
+					database.DB.Save(&existing)
+				}
+				database.DB.Order("timestamp desc").Find(&data.History)
 			}
-			database.DB.Order("timestamp desc").Find(&data.History)
 		}
 
 		secilenDork := data.SelectedDork
-		if actionType == "all" || actionType == "export_txt" || actionType == "export_json" || actionType == "load_history" {
-			for _, dork := range models.DorkLibrary {
-				rawQuery := fmt.Sprintf("site:%s %s", hedefDomain, dork.Example)
-				data.Results = append(data.Results, models.GeneratedDork{
-					Title: dork.Title,
-					Query: rawQuery,
-					URL:   fmt.Sprintf("https://www.google.com/search?q=%s", url.QueryEscape(rawQuery)),
-				})
-			}
+		if actionType == "" || actionType == "all" || actionType == "export_txt" || actionType == "export_json" || actionType == "load_history" {
+			data.Results = models.BuildDorks(hedefDomain)
 		} else {
-			if secilenDork == "" {
-				secilenDork = "ext:sql | ext:env"
-			}
-			rawQuery := fmt.Sprintf("site:%s %s", hedefDomain, secilenDork)
-			data.Results = append(data.Results, models.GeneratedDork{
-				Title: "Özel Sorgu",
-				Query: rawQuery,
-				URL:   fmt.Sprintf("https://www.google.com/search?q=%s", url.QueryEscape(rawQuery)),
-			})
+			data.Results = append(data.Results, models.BuildCustomDork(hedefDomain, secilenDork))
 		}
+		data.DorkList = models.QueryStrings(data.Results)
 
 		if actionType == "export_txt" {
 			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.txt", hedefDomain))
 			w.Header().Set("Content-Type", "text/plain")
 			for _, res := range data.Results {
-				fmt.Fprintf(w, "[%s]\nSorgu: %s\nLink: %s\n\n", res.Title, res.Query, res.URL)
+				fmt.Fprintf(w, "[%s] %s\nAçıklama: %s\nSorgu: %s\nLink: %s\n\n", res.Category, res.Title, res.Description, res.Query, res.URL)
 			}
 			return
 		}
@@ -157,4 +150,15 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.Execute(w, data)
+}
+
+func HistoryHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("../frontend/history.html"))
+
+	var history []models.HistoryItem
+	if database.IsReady() {
+		database.DB.Order("timestamp desc").Find(&history)
+	}
+
+	tmpl.Execute(w, struct{ History []models.HistoryItem }{History: history})
 }

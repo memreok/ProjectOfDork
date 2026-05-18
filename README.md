@@ -1,117 +1,368 @@
-# Dork Atölyesi (OSINT & Recon Dashboard)
+# Dork Atolyesi - Bulut Bilisim Final Projesi
 
-Dork Atölyesi, siber güvenlik uzmanları, CTF oyuncuları ve Bug Bounty avcıları için geliştirilmiş, Go (Golang) tabanlı hızlı ve hafif bir OSINT aracıdır. Hedef domainler üzerinde pasif bilgi toplama süreçlerini hızlandırmak için özel Google Dork'ları üretir ve hedefin canlılık durumunu analiz eder.
+Dork Atolyesi, Go ile gelistirilmis basit bir web uygulamasidir. Kullanici bir domain girer, uygulama hedef domain icin Google Dork sorgulari uretir, hedefin HTTP/HTTPS durumunu kontrol eder ve arama gecmisini PostgreSQL uzerinde saklar.
 
-## Özellikler
+Bu repo; Docker imaji, Kubernetes manifestleri, Persistent Volume/PVC, NetworkPolicy, HorizontalPodAutoscaler ve Jenkins tabanli CI/CD pipeline dosyalarini icerir. Kubernetes ortami olarak Google Kubernetes Engine (GKE), imaj deposu olarak Google Artifact Registry hedeflenmistir.
 
-- **Dinamik Dork Üretimi:** Tek tıkla *SQL, ENV, Log dosyaları, Açık Dizinler (Index of)* ve daha fazlası için dork üretir.
+## Teslim Checklist
 
-- **Canlı Hedef Kontrolü (Health Check):** Arka planda Goroutines kullanarak hedefin ayakta olup olmadığını (HTTP/HTTPS) kontrol eder. WAF (Web Application Firewall - 403) korumalarını ve DNS hatalarını tespit edebilir.
+| Ister | Durum | Dosya |
+| --- | --- | --- |
+| Web uygulamasi | Var | `src/backend`, `src/frontend` |
+| Dockerfile | Var | `Dockerfile` |
+| Kubernetes Deployment | Var | `k8s/backend-deployment.yaml`, `k8s/postgres-deployment.yaml` |
+| Kubernetes Service | Var | `k8s/backend-service.yaml`, `k8s/postgres-service.yaml` |
+| Scaling | Var | `k8s/hpa.yaml` |
+| Rolling update | Var | `k8s/backend-deployment.yaml`, `Jenkinsfile` |
+| Rollback adimlari | Var | README komutlari |
+| Persistent Volume/PVC | Var | `k8s/postgres-pvc.yaml` |
+| NetworkPolicy | Var | `k8s/network-policy.yaml` |
+| CI/CD pipeline | Var | `Jenkinsfile` |
+| GKE deploy akisi | Var | `docs/jenkins-gke.md`, `Jenkinsfile` |
 
-- **Dışa Aktarma (Export):** Üretilen dork listelerini otomasyon araçlarında kullanmak üzere ".txt veya .json" olarak dışa aktarır.
+## Uygulama Mimarisi
 
-- **Headless API Desteği:** Araç sadece web arayüzünden değil, */api/dorks?domain=hedef[.]com* ucu üzerinden terminalden veya diğer yazılımlardan da JSON formatında kullanılabilir.
+Uygulama iki ana parcadan olusur:
 
-- **Logger Middleware:** Yapılan tüm sorguları ve işlem sürelerini renkli olarak terminale loglar.
+- Go backend: HTTP server, API endpointleri, health/readiness endpointleri ve PostgreSQL baglantisini yonetir.
+- HTML frontend: Kullanici formu, dork sonuclari ve gecmis sorgu ekranlarini sunar.
 
-- **Kalıcı Geçmiş Sorgular:** Tüm tarama sonuçları *PostgreSQL (veya Neon.tech)* üzerinde saklanır. Tekrar tarama yapmadan sonuçlar anında yüklenebilir.
+Temel endpointler:
 
-## Kurulum ve Çalıştırma
+| Endpoint | Gorev |
+| --- | --- |
+| `/` | Web arayuzu |
+| `/api/dorks?domain=ornek.com` | JSON formatinda dork uretimi |
+| `/history` | Kayitli sorgu gecmisi |
+| `/health` | Liveness probe |
+| `/ready` | Readiness probe, veritabani hazirligini kontrol eder |
 
-### Hazırlık
+PostgreSQL, tarama gecmisini kalici olarak saklamak icin kullanilir. Uygulama Kubernetes icinde `DATABASE_URL` degerini `postgres-secret` Secret nesnesinden alir.
 
-Go (1.20+) ve bir PostgreSQL veritabanına (örn: Neon.tech) sahip olduğunuzdan emin olun.
-Arayüz için TailwindCSS (CDN) ile geliştirilmiştir.
+## Sistem Mimarisi
 
-Repoyu klonlayın ve backend dizinine gidin:
+Sistemin bulut ortami su sekildedir:
 
+```text
+Kullanici
+   |
+   v
+GKE LoadBalancer Service
+   |
+   v
+dork-backend Deployment (Go web uygulamasi, 2+ pod)
+   |
+   v
+postgres-service (ClusterIP)
+   |
+   v
+postgres-db Deployment
+   |
+   v
+postgres-pvc (kalici disk)
 ```
-git clone https://github.com/memreok/ProjectOfDork.git
+
+Dis dunyaya yalnizca `dork-backend-service` acilir. PostgreSQL servisi `ClusterIP` oldugu icin cluster disindan erisilemez.
+
+## Kubernetes Mimarisi
+
+Kubernetes kaynaklari `k8s/` dizinindedir:
+
+| Kaynak | Aciklama |
+| --- | --- |
+| `backend-deployment.yaml` | Go uygulamasini calistiran Deployment. RollingUpdate stratejisi, readiness/liveness probe ve resource limitleri icerir. |
+| `backend-service.yaml` | Uygulamayi GKE LoadBalancer ile internete acar. |
+| `postgres-deployment.yaml` | PostgreSQL containerini calistirir. |
+| `postgres-service.yaml` | PostgreSQL icin sadece cluster ici erisim saglar. |
+| `postgres-pvc.yaml` | PostgreSQL verilerini kalici disk uzerinde saklar. |
+| `postgres-secret.example.yaml` | Ornek Secret dosyasi. Gercek sifreler repo icine yazilmaz. |
+| `hpa.yaml` | Backend podlarini CPU kullanimina gore otomatik olceklendirir. |
+| `network-policy.yaml` | PostgreSQL'e sadece backend podlarindan erisim verir; backend icin gerekli ingress/egress trafigini tanimlar. |
+
+## Docker
+
+Imaj cok asamali build ile uretilir:
+
+1. `golang:1.26.2-alpine` imaji icinde Go binary derlenir.
+2. `alpine:latest` runtime imajina yalnizca binary ve frontend dosyalari kopyalanir.
+3. Uygulama container icinde `9867` portundan calisir.
+
+Yerel build:
+
+```bash
+docker build -t projectofdork-local:latest .
 ```
 
+Yerel calistirma:
+
+```bash
+docker run --rm -p 9867:9867 \
+  -e DATABASE_URL="postgres://dorkuser:password@host.docker.internal:5432/dorkdb?sslmode=disable" \
+  projectofdork-local:latest
 ```
-cd ProjectOfDork
+
+Veritabani olmadan sadece UI/API kontrolu icin `DATABASE_URL` verilmeden de calistirilabilir. Kubernetes ortaminda `DB_REQUIRED=true` oldugu icin veritabani hazir degilse pod ready olmaz.
+
+## CI/CD Pipeline Akisi
+
+CI/CD icin Jenkins kullanilir. `Jenkinsfile` su asamalari calistirir:
+
+1. Repository checkout edilir.
+2. Commit SHA ve Jenkins build numarasindan imaj tag'i uretilir.
+3. `go test ./...` calistirilir.
+4. Docker imaji build edilir.
+5. Google Cloud servis hesabi ile auth olunur.
+6. Imaj Google Artifact Registry'ye push edilir.
+7. GKE cluster credentials alinir.
+8. Secret, PVC, Deployment, Service, HPA ve NetworkPolicy manifestleri uygulanir.
+9. Deployment imaji yeni tag ile guncellenir.
+10. `kubectl rollout status` ile rolling update sonucu beklenir.
+11. `kubectl get service dork-backend-service` ile public IP Jenkins loguna yazdirilir.
+
+Jenkinsfile'in repoda bulunmasi tek basina otomasyonun aktif oldugu anlamina gelmez. Otomasyonun gercekten calismasi icin Jenkins tarafinda su kurulumlar yapilmis olmalidir:
+
+- Jenkins job tipi `Pipeline from SCM` olmali.
+- Repository URL bu GitHub reposunu gostermeli.
+- Script Path `Jenkinsfile` olmali.
+- Jenkins credential kayitlari olusturulmali.
+- Build tetikleyici olarak GitHub webhook veya belirli araliklarla SCM polling acilmali.
+
+Webhook/polling yoksa Jenkinsfile dogrudur ama build elle baslatilir; tam otomatik sayilmaz.
+
+## Jenkins Credentials
+
+Jenkins > Manage Credentials altinda su credential ID'leri beklenir:
+
+```text
+gcp-service-account-json  Secret file
+postgres-user             Secret text
+postgres-password         Secret text
+postgres-db               Secret text
+```
+
+Google Cloud servis hesabinda en az su roller bulunmalidir:
+
+- Artifact Registry Writer
+- Kubernetes Engine Developer
+- Service Account User
+
+Detayli Jenkins kurulumu icin: `docs/jenkins-gke.md`
+
+## Public IP Bulma
+
+Bu projede public IP, `dork-backend-service` LoadBalancer servisinden gelir.
+
+Cloud Shell veya `gcloud`/`kubectl` kurulu bir makinede:
+
+```bash
+gcloud container clusters get-credentials dork-cluster \
+  --location europe-west1-b \
+  --project project-444d504d-38fb-4e0d-83e
+
+kubectl get service dork-backend-service
+```
+
+Sadece IP'yi almak icin:
+
+```bash
+kubectl get service dork-backend-service \
+  -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+```
+
+Eger `EXTERNAL-IP` kisminda `<pending>` gorunuyorsa LoadBalancer henuz IP almamistir. Biraz bekleyip tekrar kontrol edilmelidir.
+
+## Kubernetes Deploy
+
+Ilk deploy icin Secret olusturulur:
+
+```bash
+kubectl create secret generic postgres-secret \
+  --from-literal=POSTGRES_USER=dorkuser \
+  --from-literal=POSTGRES_PASSWORD='guclu-bir-sifre' \
+  --from-literal=POSTGRES_DB=dorkdb \
+  --from-literal=DATABASE_URL='postgres://dorkuser:guclu-bir-sifre@postgres-service:5432/dorkdb?sslmode=disable'
+```
+
+Manifestleri uygulama:
+
+```bash
+kubectl apply -f k8s/postgres-pvc.yaml
+kubectl apply -f k8s/postgres-deployment.yaml
+kubectl apply -f k8s/postgres-service.yaml
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/hpa.yaml
+kubectl apply -f k8s/network-policy.yaml
+```
+
+Durum kontrolu:
+
+```bash
+kubectl get pods
+kubectl get services
+kubectl get pvc
+kubectl get hpa
+kubectl get networkpolicy
+```
+
+## Deployment ve Service Kullanimi
+
+Backend Deployment, Go uygulamasini birden fazla pod olarak calistirir. Readiness probe `/ready` endpointini kullanir; veritabani hazir degilse pod trafige alinmaz. Liveness probe `/health` endpointini kullanir; uygulama cevap vermezse Kubernetes podu yeniden baslatir.
+
+Backend Service `LoadBalancer` tipindedir. Bu servis GKE uzerinden public IP alir ve kullanicidan gelen HTTP trafigini backend podlarina dagitir.
+
+PostgreSQL Service `ClusterIP` tipindedir. Bu nedenle veritabani internete acilmaz; sadece cluster icinden erisilebilir.
+
+## PV/PVC Kullanimi
+
+`postgres-pvc.yaml`, PostgreSQL verileri icin 5Gi kalici depolama ister. `postgres-deployment.yaml` bu PVC'yi `/var/lib/postgresql/data` dizinine mount eder. Boylece PostgreSQL podu silinse bile veriler Persistent Volume uzerinde kalir.
+
+Kontrol:
+
+```bash
+kubectl get pvc postgres-pvc
+kubectl describe pvc postgres-pvc
+```
+
+## NetworkPolicy Kullanimi
+
+`network-policy.yaml` iki temel kural tanimlar:
+
+- PostgreSQL podlarina sadece `app=dork-backend` etiketli backend podlari TCP 5432 portundan erisebilir.
+- Backend podlari 9867 portundan trafik alabilir; PostgreSQL, DNS, HTTP ve HTTPS cikis trafigine izinlidir.
+
+Kontrol:
+
+```bash
+kubectl get networkpolicy
+kubectl describe networkpolicy postgres-allow-backend-only
+kubectl describe networkpolicy backend-network-policy
+```
+
+Not: GKE'de NetworkPolicy etkisinin uygulanmasi icin cluster tarafinda NetworkPolicy destegi aktif olmalidir. GKE Dataplane V2 veya NetworkPolicy etkin bir cluster bu kurallari uygular.
+
+## Rolling Update
+
+Rolling update, yeni imaj tag'i Deployment'a verildiginde Kubernetes'in podlari sirayla yenilemesidir. Bu projede `backend-deployment.yaml` icinde `RollingUpdate` stratejisi tanimlidir.
+
+Manuel rolling update ornegi:
+
+```bash
+kubectl set image deployment/dork-backend \
+  dork-backend-container=europe-west1-docker.pkg.dev/project-444d504d-38fb-4e0d-83e/dork-repo/projectofdork-app:NEW_TAG
+
+kubectl rollout status deployment/dork-backend
+kubectl rollout history deployment/dork-backend
+```
+
+Jenkins pipeline da deploy sirasinda ayni mantikla `kubectl set image` calistirir.
+
+## Rollback
+
+Son deploy sorunluysa once rollout history incelenir:
+
+```bash
+kubectl rollout history deployment/dork-backend
+```
+
+Bir onceki surume donmek icin:
+
+```bash
+kubectl rollout undo deployment/dork-backend
+kubectl rollout status deployment/dork-backend
+```
+
+Belirli bir revision'a donmek icin:
+
+```bash
+kubectl rollout undo deployment/dork-backend --to-revision=2
+```
+
+## Olcekleme
+
+Otomatik olcekleme HPA ile yapilir:
+
+```bash
+kubectl get hpa
+kubectl describe hpa dork-backend-hpa
+```
+
+Bu projede backend podlari CPU kullanimina gore en az 2, en fazla 5 replika olacak sekilde olceklenir.
+
+Manuel olcekleme demosu:
+
+```bash
+kubectl scale deployment dork-backend --replicas=3
+kubectl get pods -l app=dork-backend
+```
+
+HPA aktifken uzun vadeli replika sayisini HPA tekrar kendi hedeflerine gore ayarlayabilir.
+
+## Yerel Gelistirme
+
+Backend'i yerelde calistirma:
+
+```bash
 cd src/backend
-```
-
-Bağımlılıkların Yüklenmesi
-```
-
-go get gorm.io/gorm
-go get gorm.io/driver/postgres
-go get github.com/joho/godotenv
-
-```
-
-Ortam Değişkenlerini Ayarlama
-
-src/backend dizininde .env adında bir dosya oluşturun ve veritabanı linkinizi tırnak kullanmadan ekleyin:
-
-```
-DATABASE_URL=postgresql://kullanici:sifre@sunucu-adresi/veritabani?sslmode=require
-```
-
-
-
-Projeyi çalıştırın:
-```
+go mod download
 go run main.go
 ```
 
-Tarayıcınızdan arayüze erişin:
-```
-http://localhost:9867
+Test:
+
+```bash
+cd src/backend
+go test ./...
 ```
 
-## API Kullanımı
+API ornegi:
 
-Terminalden (curl vb. ile) doğrudan JSON verisi almak için:
-```
+```bash
 curl "http://localhost:9867/api/dorks?domain=ornek.com"
 ```
 
-Örnek Çıktı:
-```
-{
-  "dorks": [
-    {
-      "Query": "site:ornek.com intitle:\"index of\"",
-      "Title": "Açık Dizinler",
-      "URL": "[https://www.google.com/search?q=](https://www.google.com/search?q=)..."
-    }
-  ],
-  "target": {
-    "domain": "ornek.com",
-    "is_alive": true,
-    "status": "Aktif (HTTPS 200)"
-  },
-  "total_dorks": 10
-}
-```
+## Proje Yapisi
 
-## Proje Yapısı
-```
+```text
 .
+├── Dockerfile
+├── Jenkinsfile
 ├── README.md
+├── docs
+│   └── jenkins-gke.md
+├── k8s
+│   ├── backend-deployment.yaml
+│   ├── backend-service.yaml
+│   ├── hpa.yaml
+│   ├── network-policy.yaml
+│   ├── postgres-deployment.yaml
+│   ├── postgres-pvc.yaml
+│   ├── postgres-secret.example.yaml
+│   └── postgres-service.yaml
 └── src
     ├── backend
     │   ├── database
-    │   │   └── db.go
-    │   ├── go.mod
-    │   ├── go.sum
     │   ├── handlers
-    │   │   ├── api.go
-    │   │   └── dork.go
-    │   ├── main.go
     │   ├── models
-    │   │   └── dork_data.go
+    │   ├── go.mod
+    │   └── main.go
     └── frontend
+        ├── history.html
         └── index.html
 ```
-****
-## Yasal Uyarı
 
-Bu araç tamamen eğitim ve güvenlik testi (OSINT) amaçlı üretilmiştir. Sorgu sonuçlarından ve kullanım şeklinden tamamen son kullanıcı sorumludur. Geliştirici, aracın kötüye kullanımından doğacak hiçbir zarardan sorumlu tutulamaz.
+## Sunum Icin Kisa Akis
 
-Geliştirici: Mehmet Emre Ök
-****
+7 dakikalik sunumda su sira izlenebilir:
+
+1. Uygulama amaci: domain icin OSINT/dork sorgulari uretme.
+2. Docker: Go uygulamasinin container haline getirilmesi.
+3. Kubernetes: backend, PostgreSQL, Service, PVC ve NetworkPolicy mimarisi.
+4. CI/CD: Jenkins'in test, build, push ve GKE deploy akisi.
+5. Rolling update: yeni imaj tag'i ile kesintisiz deploy.
+6. Rollback: sorunlu surumden onceki revision'a donus.
+7. Scaling: HPA ve manuel scale komutlari.
+
+## Yasal Uyari
+
+Bu arac yalnizca egitim ve yetkili guvenlik testi amaciyla kullanilmalidir. Hedef sistemlerde izinsiz test yapmak hukuki ve etik sorunlara yol acabilir. Kullanim sorumlulugu tamamen kullaniciya aittir.

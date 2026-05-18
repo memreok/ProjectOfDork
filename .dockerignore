@@ -1,0 +1,10 @@
+.git
+.gitignore
+README.md
+Jenkinsfile
+docs/
+k8s/
+tmp/
+*.log
+.env
+src/backend/.env

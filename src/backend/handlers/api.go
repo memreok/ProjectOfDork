@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -58,15 +57,7 @@ func ApiHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		statusMsg = fmt.Sprintf("Aktif (%s %d)", protokol, resp.StatusCode)
 	}
-	var results []models.GeneratedDork
-	for _, dork := range models.DorkLibrary {
-		rawQuery := fmt.Sprintf("site:%s %s", hedefDomain, dork.Example)
-		results = append(results, models.GeneratedDork{
-			Title: dork.Title,
-			Query: rawQuery,
-			URL:   fmt.Sprintf("https://www.google.com/search?q=%s", url.QueryEscape(rawQuery)),
-		})
-	}
+	results := models.BuildDorks(hedefDomain)
 
 	response := map[string]interface{}{
 		"target": map[string]interface{}{

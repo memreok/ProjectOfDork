@@ -4,6 +4,7 @@ import (
 	"dork-project/models"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"gorm.io/driver/postgres"
@@ -20,16 +21,42 @@ func InitDB() {
 	dsn = strings.Trim(dsn, "\"")
 
 	if dsn == "" {
-		log.Fatal("DATABASE_URL bulunamadı. Lütfen .env dosyasını kontrol edin.")
+		handleInitError("DATABASE_URL bulunamadı. Geçmiş özelliği devre dışı.")
+		return
 	}
 
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Veritabanı bağlantı hatası: ", err)
+		DB = nil
+		handleInitError("Veritabanı bağlantı hatası: " + err.Error())
+		return
 	}
 
-	err = DB.AutoMigrate(&models.HistoryItem{})
+	err = db.AutoMigrate(&models.HistoryItem{})
 	if err != nil {
-		log.Fatal("Tablo oluşturma hatası: ", err)
+		DB = nil
+		handleInitError("Tablo oluşturma hatası: " + err.Error())
+		return
 	}
+
+	DB = db
+}
+
+func IsReady() bool {
+	return DB != nil
+}
+
+func IsRequired() bool {
+	required, err := strconv.ParseBool(os.Getenv("DB_REQUIRED"))
+	if err != nil {
+		return false
+	}
+	return required
+}
+
+func handleInitError(message string) {
+	if IsRequired() {
+		log.Fatal(message)
+	}
+	log.Println(message)
 }

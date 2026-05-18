@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce # Diski aynı anda sadece bir düğüm okuyup yazabilir
+  resources:
+    requests:
+      storage: 5Gi # Ders projesi için 5GB oldukça yeterli ve ucuzdur

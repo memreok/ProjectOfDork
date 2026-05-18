@@ -45,6 +45,22 @@ func loggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// K8s bu adrese saniyede bir ping atarak uygulamanın yaşayıp yaşamadığını kontrol eder
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+func ReadinessHandler(w http.ResponseWriter, r *http.Request) {
+	if database.IsRequired() && !database.IsReady() {
+		http.Error(w, "database is not ready", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("READY"))
+}
+
 func main() {
 	godotenv.Load()
 
@@ -52,10 +68,18 @@ func main() {
 
 	http.HandleFunc("/", loggerMiddleware(handlers.FormHandler))
 	http.HandleFunc("/api/dorks", loggerMiddleware(handlers.ApiHandler))
+	http.HandleFunc("/history", loggerMiddleware(handlers.HistoryHandler))
+	http.HandleFunc("/health", HealthHandler)
+	http.HandleFunc("/ready", ReadinessHandler)
 
 	port := ":9867"
+	dbStatus := "Geçmiş Devre Dışı"
+	if database.IsReady() {
+		dbStatus = "PostgreSQL Aktif"
+	}
+
 	fmt.Println("=====================================================")
-	fmt.Printf(" %s[BAŞLADI]%s Dork Atölyesi v1.5 (PostgreSQL Aktif)\n", ColorGreen, ColorReset)
+	fmt.Printf(" %s[BAŞLADI]%s Dork Atölyesi v1.5 (%s)\n", ColorGreen, ColorReset, dbStatus)
 	fmt.Printf(" [WEB] Arayüz: http://localhost%s\n", port)
 	fmt.Printf(" [API] Endpoint: http://localhost%s/api/dorks?domain=ornek.com\n", port)
 	fmt.Println("=====================================================")
