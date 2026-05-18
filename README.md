@@ -351,17 +351,7 @@ curl "http://localhost:9867/api/dorks?domain=ornek.com"
         └── index.html
 ```
 
-## Sunum Icin Kisa Akis
 
-7 dakikalik sunumda su sira izlenebilir:
-
-1. Uygulama amaci: domain icin OSINT/dork sorgulari uretme.
-2. Docker: Go uygulamasinin container haline getirilmesi.
-3. Kubernetes: backend, PostgreSQL, Service, PVC ve NetworkPolicy mimarisi.
-4. CI/CD: Jenkins'in test, build, push ve GKE deploy akisi.
-5. Rolling update: yeni imaj tag'i ile kesintisiz deploy.
-6. Rollback: sorunlu surumden onceki revision'a donus.
-7. Scaling: HPA ve manuel scale komutlari.
 
 ## Yasal Uyari
 
