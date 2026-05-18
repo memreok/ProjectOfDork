@@ -45,7 +45,6 @@ func loggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// K8s bu adrese saniyede bir ping atarak uygulamanın yaşayıp yaşamadığını kontrol eder
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))

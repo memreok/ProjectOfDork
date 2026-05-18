@@ -4,7 +4,7 @@ metadata:
   name: postgres-pvc
 spec:
   accessModes:
-    - ReadWriteOnce # Diski aynı anda sadece bir düğüm okuyup yazabilir
+    - ReadWriteOnce 
   resources:
     requests:
-      storage: 5Gi # Ders projesi için 5GB oldukça yeterli ve ucuzdur
+      storage: 5Gi 

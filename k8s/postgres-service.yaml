@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: postgres-service
 spec:
-  type: ClusterIP # Dış dünyadan erişimi engeller, sadece K8s içi erişim sağlar (Ücretsizdir)
+  type: ClusterIP 
   selector:
     app: postgres-db
   ports:

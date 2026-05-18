@@ -38,27 +38,26 @@ spec:
               key: ADMIN_TOKEN
               optional: true
         
-        # [1] KAYNAK SINIRLARI (HPA İçin Zorunlu)
         resources:
           requests:
-            cpu: "50m" # Küçük ders cluster'ında rollout için düşük CPU isteği yeterlidir
+            cpu: "50m" 
             memory: "128Mi"
           limits:
-            cpu: "250m" # Uygulama maksimum 0.25 CPU kullanabilir (Bunu geçerse HPA yeni kopya açar)
+            cpu: "250m" 
             memory: "256Mi"
         
-        # [2] LIVENESS PROBE (Self-Healing / Kendi Kendini Onarma)
+        
         livenessProbe:
           httpGet:
             path: /health
             port: 9867
-          initialDelaySeconds: 5 # Uygulama başladıktan 5 saniye sonra kontrole başla
-          periodSeconds: 10      # Her 10 saniyede bir kontrol et (Cevap alamazsa Pod'u öldürüp yenisini açar)
+          initialDelaySeconds: 5 
+          periodSeconds: 10      
         
-        # [3] READINESS PROBE (Sıfır Kesinti)
+        
         readinessProbe:
           httpGet:
             path: /ready
             port: 9867
           initialDelaySeconds: 3
-          periodSeconds: 5       # Hazır olmadan önce LoadBalancer'dan bu Pod'a trafik gönderme
+          periodSeconds: 5       
