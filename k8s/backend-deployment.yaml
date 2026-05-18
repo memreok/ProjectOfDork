@@ -31,6 +31,12 @@ spec:
               key: DATABASE_URL
         - name: DB_REQUIRED
           value: "true"
+        - name: ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: admin-secret
+              key: ADMIN_TOKEN
+              optional: true
         
         # [1] KAYNAK SINIRLARI (HPA İçin Zorunlu)
         resources:

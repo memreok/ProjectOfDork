@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 )
@@ -43,6 +44,7 @@ type PageData struct {
 	Results         []GeneratedDork
 	DorkList        []string
 	Dorks           []DorkItem
+	Categories      []string
 	History         []HistoryItem
 	ErrorMessage    string
 	IsTargetAlive   bool
@@ -201,6 +203,20 @@ func DorksByCategory(category string) []DorkItem {
 		}
 	}
 	return filtered
+}
+
+func DorkCategories() []string {
+	seen := make(map[string]struct{})
+	categories := make([]string, 0)
+	for _, dork := range DorkLibrary {
+		if _, ok := seen[dork.Category]; ok {
+			continue
+		}
+		seen[dork.Category] = struct{}{}
+		categories = append(categories, dork.Category)
+	}
+	sort.Strings(categories)
+	return categories
 }
 
 func normalizeDorkLibrary(items []DorkItem) []DorkItem {

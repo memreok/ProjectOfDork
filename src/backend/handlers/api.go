@@ -18,6 +18,12 @@ func ApiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !allowRequest(r, "api", 60, time.Minute) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Kısa sürede çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin."})
+		return
+	}
+
 	hedefDomain := normalizeTarget(r.URL.Query().Get("domain"))
 
 	if hedefDomain == "" {
@@ -28,7 +34,7 @@ func ApiHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !isValidTarget(hedefDomain) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Geçersiz hedef formatı. ornek.com veya *.hk kullanabilirsiniz."})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Geçersiz hedef formatı. example.com veya *.example kullanabilirsiniz."})
 		return
 	}
 

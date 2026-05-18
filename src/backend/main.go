@@ -81,7 +81,7 @@ func main() {
 	fmt.Println("=====================================================")
 	fmt.Printf(" %s[BAŞLADI]%s Dork Atölyesi v1.5 (%s)\n", ColorGreen, ColorReset, dbStatus)
 	fmt.Printf(" [WEB] Arayüz: http://localhost%s\n", port)
-	fmt.Printf(" [API] Endpoint: http://localhost%s/api/dorks?domain=ornek.com\n", port)
+	fmt.Printf(" [API] Endpoint: http://localhost%s/api/dorks?domain=example.com\n", port)
 	fmt.Println("=====================================================")
 
 	if err := http.ListenAndServe(port, nil); err != nil {

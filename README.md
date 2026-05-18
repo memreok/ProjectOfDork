@@ -32,7 +32,7 @@ Temel endpointler:
 | Endpoint | Gorev |
 | --- | --- |
 | `/` | Web arayuzu |
-| `/api/dorks?domain=ornek.com` | JSON formatinda dork uretimi |
+| `/api/dorks?domain=example.com` | JSON formatinda dork uretimi |
 | `/history` | Kayitli sorgu gecmisi |
 | `/health` | Liveness probe |
 | `/ready` | Readiness probe, veritabani hazirligini kontrol eder |
@@ -75,7 +75,8 @@ Kubernetes kaynaklari `k8s/` dizinindedir:
 | `postgres-deployment.yaml` | PostgreSQL containerini calistirir. |
 | `postgres-service.yaml` | PostgreSQL icin sadece cluster ici erisim saglar. |
 | `postgres-pvc.yaml` | PostgreSQL verilerini kalici disk uzerinde saklar. |
-| `postgres-secret.example.yaml` | Ornek Secret dosyasi. Gercek sifreler repo icine yazilmaz. |
+| `postgres-secret.example.yaml` | Ornek PostgreSQL Secret dosyasi. Gercek sifreler repo icine yazilmaz. |
+| `admin-secret.example.yaml` | Ornek admin token Secret dosyasi. Gecmis silme islemleri icin kullanilir. |
 | `hpa.yaml` | Backend podlarini CPU kullanimina gore otomatik olceklendirir. |
 | `network-policy.yaml` | PostgreSQL'e sadece backend podlarindan erisim verir; backend icin gerekli ingress/egress trafigini tanimlar. |
 
@@ -183,6 +184,13 @@ kubectl create secret generic postgres-secret \
   --from-literal=POSTGRES_PASSWORD='guclu-bir-sifre' \
   --from-literal=POSTGRES_DB=dorkdb \
   --from-literal=DATABASE_URL='postgres://dorkuser:guclu-bir-sifre@postgres-service:5432/dorkdb?sslmode=disable'
+```
+
+Gecmis silme ve tekrarli kayit toparlama islemlerini acmak icin admin token Secret'i olusturulur. Bu Secret yoksa uygulama calismaya devam eder, ancak admin silme islemleri kapali kalir:
+
+```bash
+kubectl create secret generic admin-secret \
+  --from-literal=ADMIN_TOKEN='uzun-rastgele-bir-token'
 ```
 
 Manifestleri uygulama:
@@ -320,7 +328,15 @@ go test ./...
 API ornegi:
 
 ```bash
-curl "http://localhost:9867/api/dorks?domain=ornek.com"
+curl "http://localhost:9867/api/dorks?domain=example.com"
+```
+
+Admin gecmis islemleri icin `/history` sayfasinda admin token girilerek yetkili mod acilir. Komut satirindan tum gecmisi silmek icin:
+
+```bash
+curl -X POST "http://localhost:9867/" \
+  -H "X-Admin-Token: uzun-rastgele-bir-token" \
+  -d "action=clear_history"
 ```
 
 ## Proje Yapisi
@@ -335,6 +351,7 @@ curl "http://localhost:9867/api/dorks?domain=ornek.com"
 ├── k8s
 │   ├── backend-deployment.yaml
 │   ├── backend-service.yaml
+│   ├── admin-secret.example.yaml
 │   ├── hpa.yaml
 │   ├── network-policy.yaml
 │   ├── postgres-deployment.yaml

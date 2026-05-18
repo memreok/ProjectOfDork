@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"dork-project/database"
 	"dork-project/models"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -23,7 +25,8 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.ParseFiles("../frontend/index.html"))
 
 	data := models.PageData{
-		Dorks: models.DorkLibrary,
+		Dorks:      models.DorkLibrary,
+		Categories: models.DorkCategories(),
 	}
 
 	if database.IsReady() {
@@ -31,22 +34,64 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		if !allowRequest(r, "form", 30, time.Minute) {
+			data.ErrorMessage = "Kısa sürede çok fazla istek gönderildi. Lütfen biraz sonra tekrar dene."
+			tmpl.Execute(w, data)
+			return
+		}
+
 		actionType := r.FormValue("action")
 
 		if actionType == "clear_history" {
+			if !canManageHistory(r) {
+				data.ErrorMessage = "Geçmişi silmek için admin yetkisi gerekli."
+				tmpl.Execute(w, data)
+				return
+			}
 			if database.IsReady() {
 				database.DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&models.HistoryItem{})
 			}
 			data.History = []models.HistoryItem{}
+			if shouldReturnToHistory(r) {
+				http.Redirect(w, r, "/history", http.StatusSeeOther)
+				return
+			}
 			tmpl.Execute(w, data)
 			return
 		}
 
 		if actionType == "delete_history" {
+			if !canManageHistory(r) {
+				data.ErrorMessage = "Geçmiş kaydı silmek için admin yetkisi gerekli."
+				tmpl.Execute(w, data)
+				return
+			}
 			historyID := r.FormValue("history_id")
 			if database.IsReady() {
 				database.DB.Delete(&models.HistoryItem{}, historyID)
 				database.DB.Order("timestamp desc").Find(&data.History)
+			}
+			if shouldReturnToHistory(r) {
+				http.Redirect(w, r, "/history", http.StatusSeeOther)
+				return
+			}
+			tmpl.Execute(w, data)
+			return
+		}
+
+		if actionType == "cleanup_history" {
+			if !canManageHistory(r) {
+				data.ErrorMessage = "Geçmişi düzenlemek için admin yetkisi gerekli."
+				tmpl.Execute(w, data)
+				return
+			}
+			if database.IsReady() {
+				cleanupDuplicateHistory()
+				database.DB.Order("timestamp desc").Find(&data.History)
+			}
+			if shouldReturnToHistory(r) {
+				http.Redirect(w, r, "/history", http.StatusSeeOther)
+				return
 			}
 			tmpl.Execute(w, data)
 			return
@@ -72,7 +117,7 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		data.SelectedDork = r.FormValue("custom_dork")
 
 		if !isValidTarget(hedefDomain) {
-			data.ErrorMessage = "Geçersiz format! Lütfen ornek.com veya *.hk gibi geçerli bir hedef girin."
+			data.ErrorMessage = "Geçersiz format! Lütfen example.com veya *.example gibi geçerli bir hedef girin."
 			tmpl.Execute(w, data)
 			return
 		}
@@ -179,6 +224,53 @@ func isValidTarget(target string) bool {
 
 func isWildcardTarget(target string) bool {
 	return wildcardDomainRegex.MatchString(target)
+}
+
+func canManageHistory(r *http.Request) bool {
+	expectedToken := strings.TrimSpace(os.Getenv("ADMIN_TOKEN"))
+	if expectedToken == "" {
+		return false
+	}
+
+	providedToken := strings.TrimSpace(r.FormValue("admin_token"))
+	if providedToken == "" {
+		providedToken = strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+	}
+
+	return subtle.ConstantTimeCompare([]byte(providedToken), []byte(expectedToken)) == 1
+}
+
+func shouldReturnToHistory(r *http.Request) bool {
+	return r.FormValue("return_to") == "/history"
+}
+
+func cleanupDuplicateHistory() {
+	var history []models.HistoryItem
+	database.DB.Order("timestamp desc").Find(&history)
+
+	seen := make(map[string]models.HistoryItem)
+	for _, item := range history {
+		normalizedDomain := normalizeTarget(item.Domain)
+		if normalizedDomain == "" {
+			continue
+		}
+
+		if kept, ok := seen[normalizedDomain]; ok {
+			database.DB.Delete(&models.HistoryItem{}, item.ID)
+			if kept.Domain != normalizedDomain {
+				kept.Domain = normalizedDomain
+				database.DB.Save(&kept)
+				seen[normalizedDomain] = kept
+			}
+			continue
+		}
+
+		if item.Domain != normalizedDomain {
+			item.Domain = normalizedDomain
+			database.DB.Save(&item)
+		}
+		seen[normalizedDomain] = item
+	}
 }
 
 func HistoryHandler(w http.ResponseWriter, r *http.Request) {
