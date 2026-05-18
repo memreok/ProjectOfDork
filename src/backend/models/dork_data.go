@@ -32,6 +32,7 @@ type GeneratedDork struct {
 
 type HistoryItem struct {
 	ID              uint   `gorm:"primaryKey"`
+	SessionID       string `gorm:"index"`
 	Domain          string `gorm:"index"`
 	IsTargetAlive   bool
 	TargetStatusMsg string

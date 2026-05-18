@@ -1,9 +1,13 @@
 package handlers
 
 import (
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"dork-project/database"
 	"dork-project/models"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -12,8 +16,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
+)
 
-	"gorm.io/gorm"
+const (
+	historySessionCookie = "dork_session"
+	adminSessionCookie   = "dork_admin"
 )
 
 var (
@@ -28,9 +35,10 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		Dorks:      models.DorkLibrary,
 		Categories: models.DorkCategories(),
 	}
+	sessionID := historySessionID(w, r)
 
 	if database.IsReady() {
-		database.DB.Order("timestamp desc").Limit(5).Find(&data.History)
+		database.DB.Where("session_id = ?", sessionID).Order("timestamp desc").Limit(5).Find(&data.History)
 	}
 
 	if r.Method == http.MethodPost {
@@ -41,15 +49,15 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		actionType := r.FormValue("action")
+		adminScope := r.FormValue("history_scope") == "all" && canManageHistory(r)
 
 		if actionType == "clear_history" {
-			if !canManageHistory(r) {
-				data.ErrorMessage = "Geçmişi silmek için admin yetkisi gerekli."
-				tmpl.Execute(w, data)
-				return
-			}
 			if database.IsReady() {
-				database.DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&models.HistoryItem{})
+				if adminScope {
+					database.DB.Where("1 = 1").Delete(&models.HistoryItem{})
+				} else {
+					database.DB.Where("session_id = ?", sessionID).Delete(&models.HistoryItem{})
+				}
 			}
 			data.History = []models.HistoryItem{}
 			if shouldReturnToHistory(r) {
@@ -61,15 +69,14 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if actionType == "delete_history" {
-			if !canManageHistory(r) {
-				data.ErrorMessage = "Geçmiş kaydı silmek için admin yetkisi gerekli."
-				tmpl.Execute(w, data)
-				return
-			}
 			historyID := r.FormValue("history_id")
 			if database.IsReady() {
-				database.DB.Delete(&models.HistoryItem{}, historyID)
-				database.DB.Order("timestamp desc").Find(&data.History)
+				if adminScope {
+					database.DB.Delete(&models.HistoryItem{}, historyID)
+				} else {
+					database.DB.Where("id = ? AND session_id = ?", historyID, sessionID).Delete(&models.HistoryItem{})
+				}
+				loadHistory(&data, sessionID, adminScope)
 			}
 			if shouldReturnToHistory(r) {
 				http.Redirect(w, r, "/history", http.StatusSeeOther)
@@ -80,14 +87,9 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if actionType == "cleanup_history" {
-			if !canManageHistory(r) {
-				data.ErrorMessage = "Geçmişi düzenlemek için admin yetkisi gerekli."
-				tmpl.Execute(w, data)
-				return
-			}
 			if database.IsReady() {
-				cleanupDuplicateHistory()
-				database.DB.Order("timestamp desc").Find(&data.History)
+				cleanupDuplicateHistory(sessionID, adminScope)
+				loadHistory(&data, sessionID, adminScope)
 			}
 			if shouldReturnToHistory(r) {
 				http.Redirect(w, r, "/history", http.StatusSeeOther)
@@ -104,7 +106,7 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 		useStoredData := false
 
 		if actionType == "load_history" && historyID != "" && database.IsReady() {
-			database.DB.First(&historyRecord, historyID)
+			database.DB.Where("id = ? AND session_id = ?", historyID, sessionID).First(&historyRecord)
 			if historyRecord.ID != 0 {
 				hedefDomain = normalizeTarget(historyRecord.Domain)
 				data.IsTargetAlive = historyRecord.IsTargetAlive
@@ -160,9 +162,10 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 
 		if !useStoredData && database.IsReady() {
 			var existing models.HistoryItem
-			result := database.DB.Where("LOWER(domain) = ?", hedefDomain).First(&existing)
+			result := database.DB.Where("session_id = ? AND LOWER(domain) = ?", sessionID, hedefDomain).First(&existing)
 			if result.Error != nil {
 				database.DB.Create(&models.HistoryItem{
+					SessionID:       sessionID,
 					Domain:          hedefDomain,
 					IsTargetAlive:   data.IsTargetAlive,
 					TargetStatusMsg: data.TargetStatusMsg,
@@ -174,7 +177,7 @@ func FormHandler(w http.ResponseWriter, r *http.Request) {
 				existing.Timestamp = time.Now()
 				database.DB.Save(&existing)
 			}
-			database.DB.Order("timestamp desc").Find(&data.History)
+			database.DB.Where("session_id = ?", sessionID).Order("timestamp desc").Find(&data.History)
 		}
 
 		secilenDork := data.SelectedDork
@@ -236,17 +239,99 @@ func canManageHistory(r *http.Request) bool {
 	if providedToken == "" {
 		providedToken = strings.TrimSpace(r.Header.Get("X-Admin-Token"))
 	}
+	if providedToken != "" {
+		return subtle.ConstantTimeCompare([]byte(providedToken), []byte(expectedToken)) == 1
+	}
 
-	return subtle.ConstantTimeCompare([]byte(providedToken), []byte(expectedToken)) == 1
+	cookie, err := r.Cookie(adminSessionCookie)
+	if err != nil {
+		return false
+	}
+	expectedSession := adminSessionSignature(expectedToken)
+	return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(expectedSession)) == 1
+}
+
+func setAdminSession(w http.ResponseWriter) bool {
+	adminToken := strings.TrimSpace(os.Getenv("ADMIN_TOKEN"))
+	if adminToken == "" {
+		return false
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     adminSessionCookie,
+		Value:    adminSessionSignature(adminToken),
+		Path:     "/",
+		MaxAge:   60 * 60 * 8,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return true
+}
+
+func clearAdminSession(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     adminSessionCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func adminSessionSignature(adminToken string) string {
+	mac := hmac.New(sha256.New, []byte(adminToken))
+	mac.Write([]byte("dork-admin-session"))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func shouldReturnToHistory(r *http.Request) bool {
 	return r.FormValue("return_to") == "/history"
 }
 
-func cleanupDuplicateHistory() {
+func historySessionID(w http.ResponseWriter, r *http.Request) string {
+	if cookie, err := r.Cookie(historySessionCookie); err == nil {
+		sessionID := strings.TrimSpace(cookie.Value)
+		if len(sessionID) >= 32 {
+			return sessionID
+		}
+	}
+
+	sessionID := newSessionID()
+	http.SetCookie(w, &http.Cookie{
+		Name:     historySessionCookie,
+		Value:    sessionID,
+		Path:     "/",
+		MaxAge:   60 * 60 * 24 * 180,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return sessionID
+}
+
+func newSessionID() string {
+	token := make([]byte, 24)
+	if _, err := rand.Read(token); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(token)
+}
+
+func loadHistory(data *models.PageData, sessionID string, adminScope bool) {
+	query := database.DB.Order("timestamp desc")
+	if !adminScope {
+		query = query.Where("session_id = ?", sessionID)
+	}
+	query.Find(&data.History)
+}
+
+func cleanupDuplicateHistory(sessionID string, adminScope bool) {
 	var history []models.HistoryItem
-	database.DB.Order("timestamp desc").Find(&history)
+	query := database.DB.Order("timestamp desc")
+	if !adminScope {
+		query = query.Where("session_id = ?", sessionID)
+	}
+	query.Find(&history)
 
 	seen := make(map[string]models.HistoryItem)
 	for _, item := range history {
@@ -255,12 +340,13 @@ func cleanupDuplicateHistory() {
 			continue
 		}
 
-		if kept, ok := seen[normalizedDomain]; ok {
+		key := item.SessionID + "|" + normalizedDomain
+		if kept, ok := seen[key]; ok {
 			database.DB.Delete(&models.HistoryItem{}, item.ID)
 			if kept.Domain != normalizedDomain {
 				kept.Domain = normalizedDomain
 				database.DB.Save(&kept)
-				seen[normalizedDomain] = kept
+				seen[key] = kept
 			}
 			continue
 		}
@@ -269,17 +355,41 @@ func cleanupDuplicateHistory() {
 			item.Domain = normalizedDomain
 			database.DB.Save(&item)
 		}
-		seen[normalizedDomain] = item
+		seen[key] = item
 	}
 }
 
 func HistoryHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.ParseFiles("../frontend/history.html"))
+	sessionID := historySessionID(w, r)
 
-	var history []models.HistoryItem
-	if database.IsReady() {
-		database.DB.Order("timestamp desc").Find(&history)
+	if r.Method == http.MethodPost {
+		switch r.FormValue("action") {
+		case "admin_login":
+			if canManageHistory(r) {
+				setAdminSession(w)
+			}
+			http.Redirect(w, r, "/history", http.StatusSeeOther)
+			return
+		case "admin_logout":
+			clearAdminSession(w)
+			http.Redirect(w, r, "/history", http.StatusSeeOther)
+			return
+		}
 	}
 
-	tmpl.Execute(w, struct{ History []models.HistoryItem }{History: history})
+	var history []models.HistoryItem
+	isAdmin := canManageHistory(r)
+	if database.IsReady() {
+		query := database.DB.Order("timestamp desc")
+		if !isAdmin {
+			query = query.Where("session_id = ?", sessionID)
+		}
+		query.Find(&history)
+	}
+
+	tmpl.Execute(w, struct {
+		History []models.HistoryItem
+		IsAdmin bool
+	}{History: history, IsAdmin: isAdmin})
 }

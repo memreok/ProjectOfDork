@@ -11,7 +11,8 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <p class="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Dork Atölyesi</p>
-                <h1 class="text-3xl font-black text-slate-950 mt-1">Tüm Arama Geçmişi</h1>
+                <h1 class="text-3xl font-black text-slate-950 mt-1">{{if .IsAdmin}}Admin Geçmişi{{else}}Kişisel Arama Geçmişi{{end}}</h1>
+                <p class="text-sm text-slate-500 mt-2">{{if .IsAdmin}}Tüm kullanıcı oturumlarından kaydedilen dork geçmişi listelenir.{{else}}Bu tarayıcı oturumuna ait kayıtlar listelenir; cookie silinirse bu liste boş başlar.{{end}}</p>
             </div>
             <a href="/" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 text-center">&larr; Ana Sayfaya Dön</a>
         </div>
@@ -29,7 +30,7 @@
                         <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Hedef</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Durum</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Tarih</th>
-                        <th class="admin-only hidden px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Yönetim</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Yönetim</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-slate-200">
@@ -38,10 +39,10 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">{{.Domain}}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{.TargetStatusMsg}}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{{.Timestamp.Format "02 Jan 2006 15:04:05"}}</td>
-                        <td class="admin-only hidden px-6 py-4 text-right">
-                            <form action="/" method="POST" class="admin-form inline-block" onsubmit="return confirm('Bu geçmiş kaydını silmek istediğine emin misin?')">
+                        <td class="px-6 py-4 text-right">
+                            <form action="/" method="POST" class="inline-block" onsubmit="return confirm('Bu geçmiş kaydını silmek istediğine emin misin?')">
                                 <input type="hidden" name="return_to" value="/history">
-                                <input type="hidden" name="admin_token" value="">
+                                {{if $.IsAdmin}}<input type="hidden" name="history_scope" value="all">{{end}}
                                 <input type="hidden" name="history_id" value="{{.ID}}">
                                 <button type="submit" name="action" value="delete_history" class="px-3 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-black">Sil</button>
                             </form>
@@ -60,30 +61,36 @@
 
         <aside class="bg-white rounded-lg border border-slate-200 p-5 space-y-4">
             <div>
-                <h2 class="text-lg font-black text-slate-950">Admin İşlemleri</h2>
-                <p class="text-sm text-slate-500 mt-2">Geçmiş silme işlemleri için admin token gerekir. Token tarayıcıda sadece bu sayfada kullanılır.</p>
+                <h2 class="text-lg font-black text-slate-950">{{if .IsAdmin}}Admin Modu{{else}}Geçmiş İşlemleri{{end}}</h2>
+                <p class="text-sm text-slate-500 mt-2">{{if .IsAdmin}}Şu an tüm kullanıcı geçmişini görüyorsun.{{else}}Normal modda yalnızca bu tarayıcı oturumuna ait geçmiş yönetilir.{{end}}</p>
             </div>
 
+            {{if .IsAdmin}}
+            <form action="/history" method="POST">
+                <button type="submit" name="action" value="admin_logout" class="w-full px-4 py-3 rounded-lg bg-slate-950 text-white text-sm font-black hover:bg-slate-800">Admin Modundan Çık</button>
+            </form>
+            {{else}}
             <div>
                 <label for="adminToken" class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Admin Token</label>
-                <input id="adminToken" type="password" autocomplete="off" placeholder="Token gir"
-                    class="w-full px-4 py-3 rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none text-sm font-semibold">
-                <button type="button" id="enableAdmin" class="mt-3 w-full px-4 py-3 rounded-lg bg-slate-950 text-white text-sm font-black hover:bg-slate-800">Yetkili Modu Aç</button>
-            </div>
-
-            <div id="adminActions" class="hidden space-y-3 border-t border-slate-200 pt-4">
-                <form action="/" method="POST" class="admin-form" onsubmit="return confirm('Büyük/küçük harf farkından oluşan tekrarları toparlamak istediğine emin misin?')">
-                    <input type="hidden" name="return_to" value="/history">
-                    <input type="hidden" name="admin_token" value="">
-                    <button type="submit" name="action" value="cleanup_history" class="w-full px-4 py-3 rounded-lg bg-cyan-50 text-cyan-700 hover:bg-cyan-100 text-sm font-black">Tekrarlı Kayıtları Toparla</button>
-                </form>
-
-                <form action="/" method="POST" class="admin-form" onsubmit="return confirm('Tüm geçmişi silmek istediğine emin misin?')">
-                    <input type="hidden" name="return_to" value="/history">
-                    <input type="hidden" name="admin_token" value="">
-                    <button type="submit" name="action" value="clear_history" class="w-full px-4 py-3 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-sm font-black">Tüm Geçmişi Sil</button>
+                <form action="/history" method="POST">
+                    <input id="adminToken" type="password" name="admin_token" autocomplete="off" placeholder="Token gir"
+                        class="w-full px-4 py-3 rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-cyan-500 outline-none text-sm font-semibold">
+                    <button type="submit" name="action" value="admin_login" class="mt-3 w-full px-4 py-3 rounded-lg bg-slate-950 text-white text-sm font-black hover:bg-slate-800">Admin Modunu Aç</button>
                 </form>
             </div>
+            {{end}}
+
+            <form action="/" method="POST" onsubmit="return confirm('Büyük/küçük harf farkından oluşan tekrarları toparlamak istediğine emin misin?')">
+                <input type="hidden" name="return_to" value="/history">
+                {{if .IsAdmin}}<input type="hidden" name="history_scope" value="all">{{end}}
+                <button type="submit" name="action" value="cleanup_history" class="w-full px-4 py-3 rounded-lg bg-cyan-50 text-cyan-700 hover:bg-cyan-100 text-sm font-black">Tekrarlı Kayıtları Toparla</button>
+            </form>
+
+            <form action="/" method="POST" onsubmit="return confirm('{{if .IsAdmin}}Tüm kullanıcı geçmişini{{else}}Kendi geçmişini{{end}} silmek istediğine emin misin?')">
+                <input type="hidden" name="return_to" value="/history">
+                {{if .IsAdmin}}<input type="hidden" name="history_scope" value="all">{{end}}
+                <button type="submit" name="action" value="clear_history" class="w-full px-4 py-3 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-sm font-black">{{if .IsAdmin}}Tüm Geçmişi Sil{{else}}Kendi Geçmişimi Sil{{end}}</button>
+            </form>
         </aside>
         </div>
     </div>
@@ -98,18 +105,6 @@
                 });
             });
         }
-
-        document.getElementById('enableAdmin').addEventListener('click', () => {
-            const token = document.getElementById('adminToken').value.trim();
-            if (!token) {
-                return;
-            }
-            document.querySelectorAll('input[name="admin_token"]').forEach((input) => {
-                input.value = token;
-            });
-            document.querySelectorAll('.admin-only').forEach((element) => element.classList.remove('hidden'));
-            document.getElementById('adminActions').classList.remove('hidden');
-        });
     </script>
 </body>
 </html>

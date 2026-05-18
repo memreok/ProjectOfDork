@@ -186,7 +186,7 @@ kubectl create secret generic postgres-secret \
   --from-literal=DATABASE_URL='postgres://dorkuser:guclu-bir-sifre@postgres-service:5432/dorkdb?sslmode=disable'
 ```
 
-Gecmis silme ve tekrarli kayit toparlama islemlerini acmak icin admin token Secret'i olusturulur. Bu Secret yoksa uygulama calismaya devam eder, ancak admin silme islemleri kapali kalir:
+Normal kullanicilar yalnizca kendi tarayici cookie oturumlarina ait gecmisi gorur ve silebilir. Adminin tum kullanici gecmisini gorebilmesi ve toplu yonetebilmesi icin admin token Secret'i olusturulur. Bu Secret yoksa uygulama calismaya devam eder, ancak admin modu kapali kalir:
 
 ```bash
 kubectl create secret generic admin-secret \
@@ -331,12 +331,13 @@ API ornegi:
 curl "http://localhost:9867/api/dorks?domain=example.com"
 ```
 
-Admin gecmis islemleri icin `/history` sayfasinda admin token girilerek yetkili mod acilir. Komut satirindan tum gecmisi silmek icin:
+Admin gecmis islemleri icin `/history` sayfasinda admin token girilerek admin modu acilir. Admin modu tum oturumlarin gecmisini listeler; normal mod yalnizca mevcut tarayici cookie oturumuna ait gecmisi gosterir. Komut satirindan tum gecmisi silmek icin:
 
 ```bash
 curl -X POST "http://localhost:9867/" \
   -H "X-Admin-Token: uzun-rastgele-bir-token" \
-  -d "action=clear_history"
+  -d "action=clear_history" \
+  -d "history_scope=all"
 ```
 
 ## Proje Yapisi
