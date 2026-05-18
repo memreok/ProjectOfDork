@@ -3,13 +3,13 @@ kind: Deployment
 metadata:
   name: dork-backend
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 5
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+      maxUnavailable: 1
+      maxSurge: 0
   selector:
     matchLabels:
       app: dork-backend
@@ -35,7 +35,7 @@ spec:
         # [1] KAYNAK SINIRLARI (HPA İçin Zorunlu)
         resources:
           requests:
-            cpu: "100m" # Uygulama en az 0.1 CPU garanti ister
+            cpu: "50m" # Küçük ders cluster'ında rollout için düşük CPU isteği yeterlidir
             memory: "128Mi"
           limits:
             cpu: "250m" # Uygulama maksimum 0.25 CPU kullanabilir (Bunu geçerse HPA yeni kopya açar)

@@ -289,7 +289,7 @@ kubectl get hpa
 kubectl describe hpa dork-backend-hpa
 ```
 
-Bu projede backend podlari CPU kullanimina gore en az 2, en fazla 5 replika olacak sekilde olceklenir.
+Bu projede backend podlari CPU kullanimina gore en az 1, en fazla 5 replika olacak sekilde olceklenir. Ders demosunda manuel scale komutu ile replika artisi da gosterilebilir.
 
 Manuel olcekleme demosu:
 
